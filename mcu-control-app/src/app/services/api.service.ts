@@ -60,10 +60,7 @@ export class ApiService {
    */
   getStatus(): Observable<StatusResponse> {
     return this.http.get<StatusResponse>(`${this.baseUrl}/api/status`).pipe(
-      tap(() => {
-        console.log('getStatus success - setting connection status to true');
-        this.connectionStatusSubject.next(true);
-      }),
+      tap(() => this.connectionStatusSubject.next(true)),
       catchError(this.handleError.bind(this))
     );
   }
@@ -84,13 +81,11 @@ export class ApiService {
   getLampStatus(): Observable<LampStatusResponse> {
     return this.http.get<LampStatusResponse>(`${this.baseUrl}/api/lamp`).pipe(
       catchError((error) => {
-        console.log('getLampStatus error - NOT setting connection to false');
         // Don't set connection to false for lamp status errors
         let errorMessage = 'Lamp status error';
         if (error.error && typeof error.error === 'object' && 'error' in error.error) {
           errorMessage = `Lamp Error: ${error.error.error}`;
         }
-        console.error('Lamp API Error:', errorMessage, error);
         return throwError(() => new Error(errorMessage));
       })
     );
@@ -120,13 +115,11 @@ export class ApiService {
   getNetworkInfo(): Observable<NetworkInfo> {
     return this.http.get<NetworkInfo>(`${this.baseUrl}/api/network`).pipe(
       catchError((error) => {
-        console.log('getNetworkInfo error - NOT setting connection to false');
         // Don't set connection to false for network info errors
         let errorMessage = 'Network info error';
         if (error.error && typeof error.error === 'object' && 'error' in error.error) {
           errorMessage = `Network Error: ${error.error.error}`;
         }
-        console.error('Network API Error:', errorMessage, error);
         return throwError(() => new Error(errorMessage));
       })
     );
@@ -183,7 +176,6 @@ export class ApiService {
    * Handle HTTP errors
    */
   private handleError(error: HttpErrorResponse): Observable<never> {
-    console.log('handleError called - setting connection status to false');
     this.connectionStatusSubject.next(false);
     
     let errorMessage = 'An unknown error occurred';

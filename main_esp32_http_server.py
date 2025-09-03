@@ -73,10 +73,42 @@ def set_led_state(led_index, state):
     """Set LED on/off state"""
     global led_states
     led_states[led_index] = state
-    
+
     if state:
         # Turn on with current brightness
-        set_led_brightness(led_index, led_brightness[led_index])
+        duty = int((led_brightness[led_index] / 100.0) * 1023)
+        if led_index == 0:
+            led_red.duty(duty)
+        elif led_index == 1:
+            led_green.duty(duty)
+        elif led_index == 2:
+            led_blue.duty(duty)
+    else:
+        # Turn off
+        if led_index == 0:
+            led_red.duty(0)
+        elif led_index == 1:
+            led_green.duty(0)
+        elif led_index == 2:
+            led_blue.duty(0)
+
+def set_led_with_brightness(led_index, state, brightness):
+    """Set LED state and brightness in one operation"""
+    global led_states, led_brightness
+
+    # Update stored values
+    led_states[led_index] = state
+    led_brightness[led_index] = max(0, min(100, brightness))
+
+    if state and brightness > 0:
+        # Turn on with specified brightness
+        duty = int((brightness / 100.0) * 1023)
+        if led_index == 0:
+            led_red.duty(duty)
+        elif led_index == 1:
+            led_green.duty(duty)
+        elif led_index == 2:
+            led_blue.duty(duty)
     else:
         # Turn off
         if led_index == 0:
@@ -87,32 +119,24 @@ def set_led_state(led_index, state):
             led_blue.duty(0)
 
 def set_led_brightness(led_index, brightness):
-    """Set LED brightness (0-100%)"""
-    global led_brightness, led_states
-    
+    """Set LED brightness (0-100%) without changing the LED state"""
+    global led_brightness
+
     # Clamp brightness to valid range
     brightness = max(0, min(100, brightness))
     led_brightness[led_index] = brightness
-    
-    # Convert percentage to PWM duty cycle (0-1023)
-    duty = int((brightness / 100.0) * 1023)
-    
-    if brightness > 0:
-        led_states[led_index] = True
+
+    # Only apply brightness if LED is currently on
+    if led_states[led_index]:
+        # Convert percentage to PWM duty cycle (0-1023)
+        duty = int((brightness / 100.0) * 1023)
+
         if led_index == 0:
             led_red.duty(duty)
         elif led_index == 1:
             led_green.duty(duty)
         elif led_index == 2:
             led_blue.duty(duty)
-    else:
-        led_states[led_index] = False
-        if led_index == 0:
-            led_red.duty(0)
-        elif led_index == 1:
-            led_green.duty(0)
-        elif led_index == 2:
-            led_blue.duty(0)
 
 def get_led_state(led_index):
     """Get LED on/off state"""
@@ -157,7 +181,11 @@ def list_sd_card_contents(path="/sd", level=0, max_level=10):
         print(f"Error listing {path}: {e}")
 
 def print_sd_card_contents():
-    """Print complete SD card contents if SD card is available"""
+    """Print complete SD card contents if SD card is being used"""
+    # Only print SD card info if we're configured to use SD card
+    if not USE_SD_CARD:
+        return
+
     print("\n" + "="*60)
     print("SD CARD CONTENTS")
     print("="*60)
@@ -183,35 +211,83 @@ def get_web_root():
 def setup_wifi():
     """Setup WiFi connection"""
     try:
+        # Check if WiFi credentials are configured
+        if not WIFI_SSID or WIFI_SSID in ["Test", "YourWiFiNetwork", ""]:
+            print("WiFi SSID not configured properly!")
+            print(f"Current SSID: '{WIFI_SSID}'")
+            print("Please update WIFI_SSID in the configuration section")
+            return None
+
+        if not WIFI_PASSWORD or WIFI_PASSWORD in ["Test", "YourPassword", ""]:
+            print("WiFi password not configured properly!")
+            print("Please update WIFI_PASSWORD in the configuration section")
+            return None
+
         wlan = network.WLAN(network.STA_IF)
         wlan.active(True)
-        print(wlan.scan())
-        
+
+        # Give the interface time to activate
+        time.sleep(1)
+
+        print(f"WiFi interface active: {wlan.active()}")
+
+        # Scan for networks to verify WiFi is working
+        try:
+            networks = wlan.scan()
+            print(f"Found {len(networks)} WiFi networks")
+            # Check if our target network is available
+            target_found = False
+            for net in networks:
+                if net[0].decode('utf-8') == WIFI_SSID:
+                    target_found = True
+                    print(f"Target network '{WIFI_SSID}' found")
+                    break
+            if not target_found:
+                print(f"Warning: Target network '{WIFI_SSID}' not found in scan")
+        except Exception as scan_error:
+            print(f"WiFi scan failed: {scan_error}")
+
         if not wlan.isconnected():
             print(f"Connecting to WiFi: {WIFI_SSID}")
+
+            # Disconnect first to ensure clean connection
+            wlan.disconnect()
+            time.sleep(1)
+
             wlan.connect(WIFI_SSID, WIFI_PASSWORD)
-            
+
             # Wait for connection with timeout
-            timeout = 20
-            print(f"Start waiting for Wifi for: {timeout} seconds")
+            timeout = 30  # Increased timeout
+            print(f"Waiting for WiFi connection (timeout: {timeout}s)")
             while not wlan.isconnected() and timeout > 0:
                 time.sleep(1)
                 timeout -= 1
-                print(f"Waiting for Wifi for: {timeout} seconds...")
-                print(".", end="")
-            
+                if timeout % 5 == 0:  # Print every 5 seconds
+                    print(f"Still connecting... {timeout}s remaining")
+
             print()
-            
+
         if wlan.isconnected():
             net_cfg = wlan.ifconfig()
-            print(f"WiFi connected: {net_cfg[0]}")
+            print(f"WiFi connected successfully!")
+            print(f"IP Address: {net_cfg[0]}")
+            print(f"Subnet Mask: {net_cfg[1]}")
+            print(f"Gateway: {net_cfg[2]}")
+            print(f"DNS: {net_cfg[3]}")
             return net_cfg
         else:
-            print("WiFi connection failed")
+            print("WiFi connection failed!")
+            print("Please check:")
+            print(f"  - SSID: '{WIFI_SSID}' is correct")
+            print(f"  - Password is correct")
+            print(f"  - Network is in range")
+            print(f"  - Network accepts new connections")
             return None
-            
+
     except Exception as e:
         print(f"WiFi setup error: {e}")
+        import sys
+        sys.print_exception(e)
         return None
 
 def setup_ethernet():
@@ -376,12 +452,8 @@ async def api_set_led(reader, writer, request):
 
         led_index = led - 1  # Convert to 0-based index
 
-        if value:
-            # Turn on LED with specified brightness
-            set_led_brightness(led_index, brightness)
-        else:
-            # Turn off LED
-            set_led_state(led_index, False)
+        # Use the new combined function to avoid interference
+        set_led_with_brightness(led_index, value, brightness)
 
     except Exception as e:
         response = HTTPResponse(400, "application/json", close=True)

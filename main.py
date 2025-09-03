@@ -256,7 +256,11 @@ def list_sd_card_contents(path="/sd", level=0, max_level=10):
         print(f"Error listing {path}: {e}")
 
 def print_sd_card_contents():
-    """Print complete SD card contents if SD card is available"""
+    """Print complete SD card contents if SD card is being used"""
+    # Only print SD card info if we're configured to use SD card
+    if not USE_SD_CARD:
+        return
+
     print("\n" + "="*60)
     print("SD CARD CONTENTS")
     print("="*60)

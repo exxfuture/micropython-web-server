@@ -113,13 +113,11 @@ export class App implements OnInit, OnDestroy {
     this.apiService.connectionStatus$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(connected => {
-      console.log('Connection status changed:', connected);
       this.isConnected = connected;
       // Only reset isConnecting if we're disconnecting
       if (!connected) {
         this.isConnecting = false;
       }
-      console.log('Component isConnected:', this.isConnected);
     });
 
     // Subscribe to auto-refresh status
@@ -144,23 +142,18 @@ export class App implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('Starting connection to:', this.deviceIp);
     this.isConnecting = true;
     this.apiService.setBaseUrl(`http://${this.deviceIp}`);
 
     this.apiService.testConnection().subscribe({
       next: () => {
-        console.log('testConnection success callback');
         this.isConnecting = false;
         this.showSuccess('Connected successfully!');
-        console.log('About to detect device type and load data');
         // Detect device type after successful connection
         this.detectDeviceType();
         this.loadAllData();
-        console.log('Connection process completed');
       },
       error: (error) => {
-        console.error('testConnection error callback:', error);
         this.isConnecting = false;
         this.showError(`Connection failed: ${error.message}`);
       }
@@ -195,36 +188,27 @@ export class App implements OnInit, OnDestroy {
   }
 
   loadStatus() {
-    console.log('Loading status...');
     this.apiService.getStatus().subscribe({
       next: (status) => {
-        console.log('Status received:', status);
         this.status = status;
         this.updateLedStatesFromStatus(status);
       },
       error: (error) => {
-        console.error('Failed to load status:', error);
         this.showError(`Failed to load status: ${error.message}`);
       }
     });
   }
 
   private updateLedStatesFromStatus(status: StatusResponse) {
-    console.log('Updating LED states from status:', status);
-
     // Get LED numbers from the response
     const ledNumbers = Object.keys(status.leds).map(key => parseInt(key)).sort((a, b) => a - b);
     this.ledCount = ledNumbers.length;
     this.ledNumbers = ledNumbers;
 
-    console.log('LED numbers found:', ledNumbers);
-    console.log('LED count:', this.ledCount);
-
     // Initialize arrays if needed
     if (this.ledStates.length !== this.ledCount) {
       this.ledStates = new Array(this.ledCount).fill(false);
       this.ledBrightness = new Array(this.ledCount).fill(50);
-      console.log('Initialized LED arrays:', { ledStates: this.ledStates, ledBrightness: this.ledBrightness });
     }
 
     // Update LED states based on response
@@ -236,23 +220,16 @@ export class App implements OnInit, OnDestroy {
         this.ledBrightness[index] = status.led_brightness[ledNumber.toString()];
       }
     });
-
-    console.log(`Final LED states:`, this.ledStates);
-    console.log(`Final LED brightness:`, this.ledBrightness);
-    console.log(`Detected ${this.ledCount} LEDs:`, ledNumbers);
   }
 
   loadLampStatus() {
-    console.log('Loading lamp status...');
     this.apiService.getLampStatus().subscribe({
       next: (lampStatus) => {
-        console.log('Lamp status received:', lampStatus);
         this.lampStatus = lampStatus;
         this.nearInfraredConfig = { ...lampStatus.nearInfraredStatus };
         this.redLightConfig = { ...lampStatus.redLightStatus };
       },
       error: (error) => {
-        console.error('Failed to load lamp status:', error);
         this.showError(`Failed to load lamp status: ${error.message}`);
       }
     });
@@ -270,22 +247,17 @@ export class App implements OnInit, OnDestroy {
   }
 
   detectDeviceType() {
-    console.log('Detecting device type...');
     this.apiService.getNetworkInfo().subscribe({
       next: (info) => {
-        console.log('Network info received:', info);
         if (info.device_type === 'ESP32 CYD') {
           this.deviceType = DeviceType.ESP32_CYD;
         } else {
           this.deviceType = DeviceType.MCU;
         }
-        console.log(`Device type detected: ${this.deviceType}`);
       },
-      error: (error) => {
+      error: () => {
         // Default to MCU if detection fails
-        console.error('Device type detection failed:', error);
         this.deviceType = DeviceType.MCU;
-        console.log('Device type detection failed, defaulting to MCU');
       }
     });
   }
