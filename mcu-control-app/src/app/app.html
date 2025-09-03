@@ -1,0 +1,272 @@
+<!-- MCU Control Application -->
+<div class="app-container">
+  <!-- Toolbar -->
+  <mat-toolbar color="primary">
+    <span>{{ title }}</span>
+    <span class="spacer"></span>
+
+    <!-- Device Type Indicator -->
+    <mat-chip-set>
+      <mat-chip [color]="isConnected ? 'accent' : 'warn'">
+        {{ isConnected ? (deviceType === DeviceType.ESP32_CYD ? 'ESP32 CYD' : 'MCU') : 'Not Connected' }}
+      </mat-chip>
+    </mat-chip-set>
+
+    <!-- Connection Status -->
+    <mat-icon [color]="isConnected ? 'accent' : 'warn'">
+      {{ isConnected ? 'wifi' : 'wifi_off' }}
+    </mat-icon>
+  </mat-toolbar>
+
+  <!-- Main Content -->
+  <div class="content">
+    <!-- Connection Panel -->
+    <mat-card class="connection-card">
+      <mat-card-header>
+        <mat-card-title>Device Connection</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="connection-controls">
+          <mat-form-field appearance="outline">
+            <mat-label>Device IP Address</mat-label>
+            <input matInput [(ngModel)]="deviceIp" placeholder="192.168.1.100" [disabled]="isConnecting">
+          </mat-form-field>
+
+          <div class="connection-buttons">
+            <button mat-raised-button color="primary" (click)="connect()" [disabled]="isConnecting || isConnected">
+              <mat-icon>{{ isConnecting ? 'hourglass_empty' : 'link' }}</mat-icon>
+              {{ isConnecting ? 'Connecting...' : 'Connect' }}
+            </button>
+
+            <button mat-raised-button color="warn" (click)="disconnect()" [disabled]="!isConnected">
+              <mat-icon>link_off</mat-icon>
+              Disconnect
+            </button>
+
+            <button mat-raised-button (click)="loadAllData()" [disabled]="!isConnected">
+              <mat-icon>refresh</mat-icon>
+              Refresh
+            </button>
+          </div>
+
+          <mat-slide-toggle [(ngModel)]="autoRefresh" (change)="toggleAutoRefresh()" [disabled]="!isConnected">
+            Auto Refresh (2s)
+          </mat-slide-toggle>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Welcome Message when not connected -->
+    <mat-card *ngIf="!isConnected" class="welcome-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>info</mat-icon>
+          Welcome to MCU Control Application
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>This application allows you to control MCU devices and ESP32 CYD boards via REST APIs.</p>
+        <p><strong>To get started:</strong></p>
+        <ol>
+          <li>Enter your device's IP address above</li>
+          <li>Click the "Connect" button</li>
+          <li>Start controlling your device!</li>
+        </ol>
+        <p><strong>Supported features:</strong></p>
+        <ul>
+          <li>Dynamic LED control (3, 6, or any number of LEDs)</li>
+          <li>Real-time button monitoring</li>
+          <li>Advanced lamp control</li>
+          <li>Automatic device type detection</li>
+        </ul>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Network Information -->
+    <mat-card *ngIf="networkInfo" class="info-card">
+      <mat-card-header>
+        <mat-card-title>Network Information</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="info-grid">
+          <div class="info-item">
+            <strong>Connection:</strong> {{ networkInfo.configured_mode }}
+          </div>
+          <div class="info-item">
+            <strong>IP Address:</strong> {{ networkInfo.ip_address }}
+          </div>
+          <div class="info-item">
+            <strong>Storage:</strong> {{ networkInfo.web_storage }}
+          </div>
+          <div class="info-item" *ngIf="networkInfo.device_type">
+            <strong>Device:</strong> {{ networkInfo.device_type }}
+          </div>
+          <div class="info-item" *ngIf="networkInfo.wifi_ssid">
+            <strong>WiFi SSID:</strong> {{ networkInfo.wifi_ssid }}
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- LED Control Panel -->
+    <mat-card *ngIf="isConnected" class="control-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>lightbulb</mat-icon>
+          LED Control
+          <span *ngIf="ledCount > 0" class="led-count-badge">({{ ledCount }} LEDs)</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="led-controls">
+          <div *ngFor="let state of ledStates; let i = index" class="led-control-item">
+            <div class="led-header">
+              <span class="led-name" [ngClass]="getLedColorClass(i)">
+                {{ getLedColorName(i) }}
+              </span>
+              <mat-slide-toggle
+                [checked]="state"
+                (change)="toggleLed(i)"
+                [color]="'primary'">
+              </mat-slide-toggle>
+            </div>
+
+            <!-- Brightness Control for ESP32 CYD -->
+            <div *ngIf="deviceType === DeviceType.ESP32_CYD" class="brightness-control">
+              <mat-slider
+                [min]="0"
+                [max]="100"
+                [step]="1"
+                [disabled]="!state">
+                <input matSliderThumb
+                       [value]="ledBrightness[i]"
+                       (valueChange)="updateLedBrightness(i, $event)">
+              </mat-slider>
+              <span class="brightness-value">{{ ledBrightness[i] }}%</span>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Button Status -->
+    <mat-card *ngIf="isConnected && status" class="status-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>touch_app</mat-icon>
+          Button Status
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="button-status">
+          <div *ngIf="status.buttons[1] !== undefined" class="button-item">
+            <span>Button 1:</span>
+            <mat-chip [color]="status.buttons[1] === 0 ? 'accent' : 'primary'">
+              {{ getButtonStatusText(status.buttons[1]) }}
+            </mat-chip>
+          </div>
+          <div *ngIf="status.buttons[2] !== undefined" class="button-item">
+            <span>Button 2:</span>
+            <mat-chip [color]="status.buttons[2] === 0 ? 'accent' : 'primary'">
+              {{ getButtonStatusText(status.buttons[2]) }}
+            </mat-chip>
+          </div>
+          <div *ngIf="status.buttons.boot !== undefined" class="button-item">
+            <span>Boot Button:</span>
+            <mat-chip [color]="status.buttons.boot === 0 ? 'accent' : 'primary'">
+              {{ getButtonStatusText(status.buttons.boot) }}
+            </mat-chip>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Lamp Control Panel -->
+    <mat-expansion-panel *ngIf="isConnected" class="lamp-panel">
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          <mat-icon>wb_incandescent</mat-icon>
+          Advanced Lamp Control
+        </mat-panel-title>
+      </mat-expansion-panel-header>
+
+      <div class="lamp-controls">
+        <!-- Near Infrared Control -->
+        <mat-card class="lamp-control-card">
+          <mat-card-header>
+            <mat-card-title>Near Infrared</mat-card-title>
+            <mat-card-subtitle>
+              <mat-icon [color]="nearInfraredConfig.power === PowerState.ON ? 'accent' : 'warn'">
+                {{ getPowerStateIcon(nearInfraredConfig.power) }}
+              </mat-icon>
+              {{ nearInfraredConfig.power }}
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="lamp-config">
+              <button mat-raised-button
+                      [color]="nearInfraredConfig.power === PowerState.ON ? 'warn' : 'primary'"
+                      (click)="toggleNearInfraredPower()">
+                {{ nearInfraredConfig.power === PowerState.ON ? 'Turn OFF' : 'Turn ON' }}
+              </button>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Brightness</mat-label>
+                <input matInput type="number" [(ngModel)]="nearInfraredConfig.brightness" min="0" max="100">
+                <span matSuffix>%</span>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Timer</mat-label>
+                <input matInput type="number" [(ngModel)]="nearInfraredConfig.timer" min="0">
+                <span matSuffix>sec</span>
+              </mat-form-field>
+
+              <button mat-raised-button color="accent" (click)="updateNearInfraredLamp()">
+                Apply Settings
+              </button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Red Light Control -->
+        <mat-card class="lamp-control-card">
+          <mat-card-header>
+            <mat-card-title>Red Light</mat-card-title>
+            <mat-card-subtitle>
+              <mat-icon [color]="redLightConfig.power === PowerState.ON ? 'accent' : 'warn'">
+                {{ getPowerStateIcon(redLightConfig.power) }}
+              </mat-icon>
+              {{ redLightConfig.power }}
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="lamp-config">
+              <button mat-raised-button
+                      [color]="redLightConfig.power === PowerState.ON ? 'warn' : 'primary'"
+                      (click)="toggleRedLightPower()">
+                {{ redLightConfig.power === PowerState.ON ? 'Turn OFF' : 'Turn ON' }}
+              </button>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Brightness</mat-label>
+                <input matInput type="number" [(ngModel)]="redLightConfig.brightness" min="0" max="100">
+                <span matSuffix>%</span>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Timer</mat-label>
+                <input matInput type="number" [(ngModel)]="redLightConfig.timer" min="0">
+                <span matSuffix>sec</span>
+              </mat-form-field>
+
+              <button mat-raised-button color="accent" (click)="updateRedLightLamp()">
+                Apply Settings
+              </button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-expansion-panel>
+  </div>
+</div>

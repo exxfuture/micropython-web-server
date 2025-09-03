@@ -1,0 +1,251 @@
+// MCU Control Application Styles
+
+.app-container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.content {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+// Welcome Card
+.welcome-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+
+  mat-card-title {
+    color: white;
+
+    mat-icon {
+      color: white;
+      margin-right: 8px;
+    }
+  }
+
+  p, li {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  strong {
+    color: white;
+  }
+
+  ol, ul {
+    padding-left: 20px;
+  }
+
+  li {
+    margin-bottom: 4px;
+  }
+}
+
+// Connection Card
+.connection-card {
+  .connection-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    mat-form-field {
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .connection-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+
+      button {
+        min-width: 120px;
+      }
+    }
+  }
+}
+
+// Info Card
+.info-card {
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+
+    .info-item {
+      padding: 8px;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+      border-left: 4px solid #3f51b5;
+    }
+  }
+}
+
+// LED Control
+.control-card {
+  .led-count-badge {
+    font-size: 0.8em;
+    color: #666;
+    font-weight: normal;
+    margin-left: 8px;
+  }
+  .led-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    .led-control-item {
+      padding: 16px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      background-color: #fafafa;
+
+      .led-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+
+        .led-name {
+          font-weight: 500;
+          font-size: 16px;
+
+          &.led-red {
+            color: #f44336;
+          }
+
+          &.led-green {
+            color: #4caf50;
+          }
+
+          &.led-blue {
+            color: #2196f3;
+          }
+
+          &.led-orange {
+            color: #ff9800;
+          }
+
+          &.led-purple {
+            color: #9c27b0;
+          }
+
+          &.led-cyan {
+            color: #00bcd4;
+          }
+
+          &.led-default {
+            color: #666;
+          }
+        }
+      }
+
+      .brightness-control {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+
+        mat-slider {
+          flex: 1;
+        }
+
+        .brightness-value {
+          min-width: 40px;
+          text-align: right;
+          font-weight: 500;
+          color: #666;
+        }
+      }
+    }
+  }
+}
+
+// Button Status
+.status-card {
+  .button-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+
+    .button-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      span {
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+// Lamp Control Panel
+.lamp-panel {
+  margin-top: 20px;
+
+  .lamp-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+    padding: 16px 0;
+
+    .lamp-control-card {
+      .lamp-config {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+
+        mat-form-field {
+          width: 100%;
+        }
+
+        button {
+          align-self: flex-start;
+        }
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .content {
+    padding: 12px;
+  }
+
+  .connection-card .connection-controls .connection-buttons {
+    flex-direction: column;
+
+    button {
+      width: 100%;
+    }
+  }
+
+  .info-card .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lamp-panel .lamp-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Snackbar Styles
+.success-snackbar {
+  background-color: #4caf50 !important;
+  color: white !important;
+}
+
+.error-snackbar {
+  background-color: #f44336 !important;
+  color: white !important;
+}
