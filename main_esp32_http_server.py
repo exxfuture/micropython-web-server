@@ -131,6 +131,47 @@ def cleanup_leds():
 # ===( Utility Functions )===================================================
 # ============================================================================
 
+def list_sd_card_contents(path="/sd", level=0, max_level=10):
+    """Recursively list all contents of SD card including directories and files"""
+    if level > max_level:
+        return
+
+    try:
+        items = os.listdir(path)
+        for item in sorted(items):
+            item_path = f"{path}/{item}" if path != "/" else f"/{item}"
+            indent = "  " * level
+
+            try:
+                stat_info = os.stat(item_path)
+                if stat_info[0] & 0x4000:  # Directory
+                    print(f"{indent}[DIR]  {item}/")
+                    list_sd_card_contents(item_path, level + 1, max_level)
+                else:  # File
+                    file_size = stat_info[6]
+                    print(f"{indent}[FILE] {item} ({file_size} bytes)")
+            except Exception as e:
+                print(f"{indent}[ERR]  {item} (error: {e})")
+
+    except Exception as e:
+        print(f"Error listing {path}: {e}")
+
+def print_sd_card_contents():
+    """Print complete SD card contents if SD card is available"""
+    print("\n" + "="*60)
+    print("SD CARD CONTENTS")
+    print("="*60)
+
+    try:
+        # Check if SD card is mounted
+        os.stat("/sd")
+        print("SD card is mounted at /sd")
+        list_sd_card_contents("/sd")
+    except:
+        print("SD card not mounted or not available")
+
+    print("="*60 + "\n")
+
 def get_web_root():
     """Get the web root directory based on configuration"""
     return '/sd/www' if USE_SD_CARD else '/www'
@@ -821,6 +862,9 @@ async def memory_management_task():
 async def main():
     """Main server function"""
     print("Setting up ESP32 CYD Async HTTP Server...")
+
+    # Print SD card contents
+    print_sd_card_contents()
 
     # Set up server configuration
     web_root = get_web_root()

@@ -110,6 +110,47 @@ print(f"ESP32 CYD RGB LEDs initialized: {led_names}")
 # ===( Web Files Storage Configuration )=====================================
 # ============================================================================
 
+def list_sd_card_contents(path="/sd", level=0, max_level=10):
+    """Recursively list all contents of SD card including directories and files"""
+    if level > max_level:
+        return
+
+    try:
+        items = os.listdir(path)
+        for item in sorted(items):
+            item_path = f"{path}/{item}" if path != "/" else f"/{item}"
+            indent = "  " * level
+
+            try:
+                stat_info = os.stat(item_path)
+                if stat_info[0] & 0x4000:  # Directory
+                    print(f"{indent}[DIR]  {item}/")
+                    list_sd_card_contents(item_path, level + 1, max_level)
+                else:  # File
+                    file_size = stat_info[6]
+                    print(f"{indent}[FILE] {item} ({file_size} bytes)")
+            except Exception as e:
+                print(f"{indent}[ERR]  {item} (error: {e})")
+
+    except Exception as e:
+        print(f"Error listing {path}: {e}")
+
+def print_sd_card_contents():
+    """Print complete SD card contents if SD card is available"""
+    print("\n" + "="*60)
+    print("SD CARD CONTENTS")
+    print("="*60)
+
+    try:
+        # Check if SD card is mounted
+        os.stat("/sd")
+        print("SD card is mounted at /sd")
+        list_sd_card_contents("/sd")
+    except:
+        print("SD card not mounted or not available")
+
+    print("="*60 + "\n")
+
 def get_web_root():
     """Get the web root path based on configuration and availability"""
     global web_storage_ready
@@ -628,6 +669,9 @@ def print_memory_info():
 
 def main():
     print("Setting up ESP32 CYD MicroWebSrv2...")
+
+    # Print SD card contents
+    print_sd_card_contents()
 
     # Create MicroWebSrv2 instance
     mws2 = MicroWebSrv2()
