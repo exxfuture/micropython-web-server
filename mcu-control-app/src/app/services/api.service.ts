@@ -60,7 +60,10 @@ export class ApiService {
    */
   getStatus(): Observable<StatusResponse> {
     return this.http.get<StatusResponse>(`${this.baseUrl}/api/status`).pipe(
-      tap(() => this.connectionStatusSubject.next(true)),
+      tap(() => {
+        console.log('getStatus success - setting connection status to true');
+        this.connectionStatusSubject.next(true);
+      }),
       catchError(this.handleError.bind(this))
     );
   }
@@ -162,6 +165,7 @@ export class ApiService {
    * Handle HTTP errors
    */
   private handleError(error: HttpErrorResponse): Observable<never> {
+    console.log('handleError called - setting connection status to false');
     this.connectionStatusSubject.next(false);
     
     let errorMessage = 'An unknown error occurred';

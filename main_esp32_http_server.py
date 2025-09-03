@@ -26,7 +26,7 @@ import time
 import uasyncio as asyncio
 
 # Import the async HTTP server
-from ahttpserver.ahttpserver import HTTPResponse, HTTPServer, sendfile
+from ahttpserver import HTTPResponse, HTTPServer, sendfile
 
 # ============================================================================
 # ===( Configuration )=======================================================
@@ -247,6 +247,23 @@ app = HTTPServer(host="0.0.0.0", port=80, timeout=30)
 # ===( API Endpoints )=======================================================
 # ============================================================================
 
+# CORS preflight handler for all API endpoints
+@app.route("OPTIONS", "/api/status")
+@app.route("OPTIONS", "/api/leds")
+@app.route("OPTIONS", "/api/lamp")
+@app.route("OPTIONS", "/api/network")
+async def api_options(reader, writer, request):
+    """Handle CORS preflight requests"""
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "86400"
+    }
+    response = HTTPResponse(200, "text/plain", close=True, header=cors_headers)
+    await response.send(writer)
+    await writer.drain()
+
 @app.route("GET", "/api/status")
 async def api_status(reader, writer, request):
     """Get LED and button status"""
@@ -266,7 +283,13 @@ async def api_status(reader, writer, request):
         }
     }
 
-    response = HTTPResponse(200, "application/json", close=True)
+    # Add CORS headers
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
+    response = HTTPResponse(200, "application/json", close=True, header=cors_headers)
     await response.send(writer)
     writer.write(json.dumps(data))
     await writer.drain()
@@ -333,7 +356,13 @@ async def api_set_led(reader, writer, request):
         "brightness": get_led_brightness(led_index)
     }
 
-    response = HTTPResponse(200, "application/json", close=True)
+    # Add CORS headers
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
+    response = HTTPResponse(200, "application/json", close=True, header=cors_headers)
     await response.send(writer)
     writer.write(json.dumps(response_data))
     await writer.drain()
@@ -368,7 +397,13 @@ async def api_get_lamp_status(reader, writer, request):
         }
     }
 
-    response = HTTPResponse(200, "application/json", close=True)
+    # Add CORS headers
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
+    response = HTTPResponse(200, "application/json", close=True, header=cors_headers)
     await response.send(writer)
     writer.write(json.dumps(data))
     await writer.drain()
@@ -455,7 +490,13 @@ async def api_set_lamp(reader, writer, request):
             }
         }
 
-        response = HTTPResponse(200, "application/json", close=True)
+        # Add CORS headers
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type"
+        }
+        response = HTTPResponse(200, "application/json", close=True, header=cors_headers)
         await response.send(writer)
         writer.write(json.dumps(response_data))
         await writer.drain()
@@ -494,7 +535,13 @@ async def api_get_network_status(reader, writer, request):
             except:
                 pass
 
-        response = HTTPResponse(200, "application/json", close=True)
+        # Add CORS headers
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type"
+        }
+        response = HTTPResponse(200, "application/json", close=True, header=cors_headers)
         await response.send(writer)
         writer.write(json.dumps(network_info))
         await writer.drain()
@@ -623,6 +670,12 @@ original_handle_request = app._handle_request
 
 async def custom_handle_request(reader, writer):
     """Custom request handler with catch-all static file serving"""
+    # Import required classes at the beginning to avoid import issues in exception handling
+    from ahttpserver import url
+    HTTPRequest = url.HTTPRequest
+    InvalidRequest = url.InvalidRequest
+
+    request = None  # Initialize request variable to prevent UnboundLocalError
     try:
         request_line = await asyncio.wait_for(reader.readline(), app.timeout)
 
@@ -633,7 +686,6 @@ async def custom_handle_request(reader, writer):
         print(f"request_line {request_line} from {writer.get_extra_info('peername')[0]}")
 
         try:
-            from ahttpserver.url import HTTPRequest, InvalidRequest
             request = HTTPRequest(request_line)
         except InvalidRequest as e:
             while True:
@@ -643,6 +695,13 @@ async def custom_handle_request(reader, writer):
             response = HTTPResponse(400, "text/plain", close=True)
             await response.send(writer)
             writer.write(repr(e).encode("utf-8"))
+            return
+        except Exception as e:
+            # Handle any other exception during request parsing
+            print(f"Error parsing request: {e}")
+            response = HTTPResponse(400, "text/plain", close=True)
+            await response.send(writer)
+            writer.write(b"Bad Request")
             return
 
         while True:
@@ -656,19 +715,26 @@ async def custom_handle_request(reader, writer):
                     name, value = line.split(b':', 1)
                     request.header[name] = value.strip()
 
-        # search function which is connected to (method, path)
-        func = app._routes.get((request.method, request.path))
-        if func:
-            await func(reader, writer, request)
-        else:
-            # Handle static files for any unmatched GET request
-            if request.method == "GET" and not request.path.startswith("/api/"):
-                await serve_static_file(reader, writer, request)
+        # Ensure request was successfully parsed before using it
+        if request is not None:
+            # search function which is connected to (method, path)
+            func = app._routes.get((request.method, request.path))
+            if func:
+                await func(reader, writer, request)
             else:
-                # Return 404 for non-GET requests or API paths not found
-                response = HTTPResponse(404, "application/json", close=True)
-                await response.send(writer)
-                writer.write(json.dumps({"error": "not found"}))
+                # Handle static files for any unmatched GET request
+                if request.method == "GET" and not request.path.startswith("/api/"):
+                    await serve_static_file(reader, writer, request)
+                else:
+                    # Return 404 for non-GET requests or API paths not found
+                    response = HTTPResponse(404, "application/json", close=True)
+                    await response.send(writer)
+                    writer.write(json.dumps({"error": "not found"}))
+        else:
+            # Request parsing failed, send error response
+            response = HTTPResponse(400, "text/plain", close=True)
+            await response.send(writer)
+            writer.write(b"Bad Request")
 
     except asyncio.TimeoutError:
         pass
